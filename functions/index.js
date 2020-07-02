@@ -13,10 +13,6 @@ const db = admin.firestore();
 
 app.use(cors({ origin: true }));
 
-app.get('/hello-world', (req, res) => {
-  return res.status(200).send('Hello World!');
-});
-
 // create
 app.post('/api/create', (req, res) => {
   (async () => {
@@ -52,15 +48,15 @@ app.get('/api/read', (req, res) => {
     try {
       let query = db.collection('items');
       let response = [];
-      await query.get().then(querySnapshot => {
-      let docs = querySnapshot.docs;
-      for (let doc of docs) {
-        const selectedItem = {
-          id: doc.id,
-          item: doc.data().item
-        };
-        response.push(selectedItem);
-      }
+      await query.get().then((querySnapshot) => {
+        let docs = querySnapshot.docs;
+        for (let doc of docs) {
+          const selectedItem = {
+            id: doc.id,
+            item: doc.data().item
+          };
+          response.push(selectedItem);
+        }
       });
       return res.status(200).send(response);
     } catch (error) {
