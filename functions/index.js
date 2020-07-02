@@ -3,22 +3,36 @@ const admin = require('firebase-admin');
 const express = require('express');
 const cors = require('cors');
 const app = express();
+const serviceAccount = require('./permissions.json');
 
-var serviceAccount = require("./permissions.json");
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://fir-api-9a206..firebaseio.com"
+  databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`
 });
+
 const db = admin.firestore();
+
+const body = (collection, req) => ({
+  "pets": {
+    name: req.body.name,
+    species: req.body.species
+  },
+  "people": {
+    name: req.body.name,
+    job: req.body.job
+  }
+})[collection];
 
 app.use(cors({ origin: true }));
 
 // create
-app.post('/api/create', (req, res) => {
+app.post('/api/:collection/create', (req, res) => {
   (async () => {
     try {
-      await db.collection('items').doc('/' + req.body.id + '/')
-        .create({item: req.body.item});
+      const collection = req.params.collection
+      await db.collection(collection).doc(`/${req.body.id}/`).create(
+        body(collection, req)
+      );
       return res.status(200).send();
     } catch (error) {
       console.log(error);
@@ -27,13 +41,14 @@ app.post('/api/create', (req, res) => {
   })();
 });
 
-// read item
-app.get('/api/read/:item_id', (req, res) => {
+// read single
+app.get('/api/:collection/read/:id', (req, res) => {
   (async () => {
     try {
-      const document = db.collection('items').doc(req.params.item_id);
-      let item = await document.get();
-      let response = item.data();
+      const collection = req.params.collection
+      const document = db.collection(collection).doc(req.params.id);
+      let doc = await document.get();
+      let response = doc.data();
       return res.status(200).send(response);
     } catch (error) {
       console.log(error);
@@ -43,20 +58,23 @@ app.get('/api/read/:item_id', (req, res) => {
 });
 
 // read all
-app.get('/api/read', (req, res) => {
+app.get('/api/:collection/read', (req, res) => {
   (async () => {
     try {
-      let query = db.collection('items');
+      const collection = req.params.collection
+      let query = db.collection(collection);
       let response = [];
       await query.get().then((querySnapshot) => {
         let docs = querySnapshot.docs;
         for (let doc of docs) {
-          const selectedItem = {
-            id: doc.id,
-            item: doc.data().item
+          const allDocs = {
+            [doc.id]: {
+              [collection]: doc.data()
+            }
           };
-          response.push(selectedItem);
+          response.push(allDocs);
         }
+        return console.log('Meaningless return statement, satisfying lint')
       });
       return res.status(200).send(response);
     } catch (error) {
@@ -67,13 +85,14 @@ app.get('/api/read', (req, res) => {
 });
 
 // update
-app.put('/api/update/:item_id', (req, res) => {
+app.put('/api/:collection/update/:id', (req, res) => {
   (async () => {
     try {
-      const document = db.collection('items').doc(req.params.item_id);
-      await document.update({
-        item: req.body.item
-      });
+      const collection = req.params.collection
+      const document = db.collection(collection).doc(req.params.id);
+      await document.update(
+        body(collection, req)
+      );
       return res.status(200).send();
     } catch (error) {
       console.log(error);
@@ -83,10 +102,11 @@ app.put('/api/update/:item_id', (req, res) => {
 });
 
 // delete
-app.delete('/api/delete/:item_id', (req, res) => {
+app.delete('/api/:collection/delete/:id', (req, res) => {
   (async () => {
     try {
-      const document = db.collection('items').doc(req.params.item_id);
+      const collection = req.params.collection
+      const document = db.collection(collection).doc(req.params.id);
       await document.delete();
       return res.status(200).send();
     } catch (error) {
